@@ -15,7 +15,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error("Missing required Stripe secret: STRIPE_SECRET_KEY");
 }
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2024-12-18.acacia",
+  apiVersion: "2025-09-30.clover",
 });
 
 // Initialize OpenAI
@@ -132,7 +132,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/social/mock-callback", isAuthenticated, async (req: any, res) => {
     // This endpoint is used in mock mode to simulate OAuth callback
     const { code, state } = req.query;
-    res.redirect(`/api/social/callback/twitter?code=${code}&state=${state}`);
+    
+    // Extract the platform from the state parameter
+    try {
+      const stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
+      const platform = stateData.platform || 'twitter'; // fallback to twitter if missing
+      res.redirect(`/api/social/callback/${platform}?code=${code}&state=${state}`);
+    } catch (error) {
+      console.error("Error parsing state in mock callback:", error);
+      res.redirect('/dashboard?error=oauth_failed');
+    }
   });
 
   app.delete("/api/connected-accounts/:id", isAuthenticated, async (req: any, res) => {

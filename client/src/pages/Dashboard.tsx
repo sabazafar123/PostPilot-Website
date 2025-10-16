@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +13,6 @@ import { Calendar, Facebook, Instagram, Youtube, Linkedin, Twitter as XIcon, Upl
 import { SiTiktok } from "react-icons/si";
 import type { Post, ConnectedAccount } from "@shared/schema";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import type { UploadResult } from "@uppy/core";
 
 const PLATFORMS = [
   { id: "facebook", name: "Facebook", icon: Facebook, color: "text-blue-600" },
@@ -25,10 +25,34 @@ const PLATFORMS = [
 
 export default function Dashboard() {
   const { toast } = useToast();
+  const [location] = useLocation();
   const [postContent, setPostContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+
+  // Handle OAuth callback success/error messages
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("connected");
+    const error = params.get("error");
+
+    if (connected) {
+      toast({
+        title: "Account Connected!",
+        description: `Successfully connected ${connected}`,
+      });
+      // Clear URL params
+      window.history.replaceState({}, '', '/dashboard');
+    } else if (error) {
+      toast({
+        title: "Connection Failed",
+        description: "Unable to connect account",
+        variant: "destructive",
+      });
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, [toast]);
 
   const { data: connectedAccounts } = useQuery<ConnectedAccount[]>({
     queryKey: ["/api/connected-accounts"],
@@ -39,13 +63,39 @@ export default function Dashboard() {
   });
 
   const connectMutation = useMutation({
-    mutationFn: (platform: string) =>
-      apiRequest("POST", "/api/connected-accounts", { platform }),
+    mutationFn: async (platform: string) => {
+      const response = await fetch(`/api/social/connect/${platform}`, {
+        credentials: "include",
+      });
+      return response.json();
+    },
+    onSuccess: (data: { url: string; isMock: boolean }) => {
+      // Redirect to OAuth URL (or mock OAuth flow)
+      if (data.isMock) {
+        toast({
+          title: "Mock OAuth Mode",
+          description: "Connecting in simulation mode...",
+        });
+      }
+      window.location.href = data.url;
+    },
+    onError: () => {
+      toast({
+        title: "Connection Failed",
+        description: "Unable to initiate OAuth flow",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: (accountId: string) =>
+      apiRequest("DELETE", `/api/connected-accounts/${accountId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/connected-accounts"] });
       toast({
-        title: "Account Connected",
-        description: "Platform connection placeholder saved (API integration pending)",
+        title: "Account Disconnected",
+        description: "Account has been removed successfully",
       });
     },
   });
@@ -101,7 +151,7 @@ export default function Dashboard() {
     return { method: "PUT" as const, url: data.uploadURL };
   };
 
-  const handleUploadComplete = async (result: UploadResult) => {
+  const handleUploadComplete = async (result: any) => {
     if (result.successful[0]?.uploadURL) {
       const uploadedUrl = result.successful[0].uploadURL.split("?")[0];
       
@@ -124,8 +174,8 @@ export default function Dashboard() {
   const scheduledPosts = posts?.filter((p) => p.status === "scheduled") || [];
   const pastPosts = posts?.filter((p) => p.status === "published") || [];
 
-  const isAccountConnected = (platformId: string) => {
-    return connectedAccounts?.some((acc) => acc.platform === platformId && acc.isConnected);
+  const getConnectedAccount = (platformId: string) => {
+    return connectedAccounts?.find((acc) => acc.platform === platformId && acc.isConnected);
   };
 
   return (
@@ -137,26 +187,39 @@ export default function Dashboard() {
             <CardTitle className="text-2xl" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
               Connect Social Accounts
             </CardTitle>
-            <CardDescription>Link your social media platforms (API integration pending)</CardDescription>
+            <CardDescription>Link your social media platforms via OAuth (currently in simulation mode)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {PLATFORMS.map((platform) => {
                 const Icon = platform.icon;
-                const connected = isAccountConnected(platform.id);
+                const account = getConnectedAccount(platform.id);
                 return (
-                  <Button
-                    key={platform.id}
-                    variant={connected ? "default" : "outline"}
-                    onClick={() => connectMutation.mutate(platform.id)}
-                    disabled={connectMutation.isPending}
-                    data-testid={`button-connect-${platform.id}`}
-                    className="h-24 flex-col gap-2 hover-elevate active-elevate-2"
-                  >
-                    <Icon className={`w-8 h-8 ${connected ? "text-white" : platform.color}`} />
-                    <span className="text-xs font-medium">{platform.name}</span>
-                    {connected && <Badge className="text-xs px-1 py-0">Connected</Badge>}
-                  </Button>
+                  <div key={platform.id} className="relative">
+                    <Button
+                      variant={account ? "default" : "outline"}
+                      onClick={() => !account && connectMutation.mutate(platform.id)}
+                      disabled={connectMutation.isPending || !!account}
+                      data-testid={`button-connect-${platform.id}`}
+                      className="w-full h-24 flex-col gap-2 hover-elevate active-elevate-2"
+                    >
+                      <Icon className={`w-8 h-8 ${account ? "text-white" : platform.color}`} />
+                      <span className="text-xs font-medium">{platform.name}</span>
+                      {account && <Badge className="text-xs px-1 py-0">{account.accountName || "Connected"}</Badge>}
+                    </Button>
+                    {account && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => disconnectMutation.mutate(account.id)}
+                        disabled={disconnectMutation.isPending}
+                        data-testid={`button-disconnect-${platform.id}`}
+                        className="absolute top-1 right-1 h-6 w-6 p-0"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 );
               })}
             </div>
