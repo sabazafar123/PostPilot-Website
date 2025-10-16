@@ -7,6 +7,8 @@ import { ObjectPermission } from "./objectAcl";
 import { insertConnectedAccountSchema, insertPostSchema } from "@shared/schema";
 import Stripe from "stripe";
 import OpenAI from "openai";
+import { platformManager } from "./platforms/PlatformManager";
+import type { PlatformName } from "./platforms/types";
 
 // Initialize Stripe
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -69,6 +71,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating connected account:", error);
       res.status(400).json({ message: "Invalid request data" });
+    }
+  });
+
+  // Social Media OAuth
+  app.get("/api/social/connect/:platform", isAuthenticated, async (req: any, res) => {
+    try {
+      const platform = req.params.platform as PlatformName;
+      const userId = req.user.claims.sub;
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/social/callback/${platform}`;
+      
+      const provider = platformManager.getProvider(platform);
+      const authUrl = provider.getAuthUrl(userId, redirectUri);
+      
+      res.json({ url: authUrl, isMock: platformManager.isMockMode() });
+    } catch (error) {
+      console.error("Error initiating OAuth:", error);
+      res.status(500).json({ message: "Failed to initiate OAuth" });
+    }
+  });
+
+  app.get("/api/social/callback/:platform", async (req: any, res) => {
+    try {
+      const platform = req.params.platform as PlatformName;
+      const { code, state } = req.query;
+      
+      if (!code || !state) {
+        return res.status(400).send("Missing OAuth parameters");
+      }
+
+      const provider = platformManager.getProvider(platform);
+      const tokens = await provider.handleCallback(code as string, state as string);
+      const accountInfo = await provider.getAccountInfo(tokens.accessToken);
+      
+      // Parse state to get userId
+      const stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
+      const userId = stateData.userId;
+      
+      // Store the connection
+      const expiresAt = tokens.expiresIn ? new Date(Date.now() + tokens.expiresIn * 1000) : null;
+      await storage.createConnectedAccount({
+        userId,
+        platform,
+        accountName: accountInfo.displayName || accountInfo.username,
+        accountId: accountInfo.id,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        tokenExpiresAt: expiresAt,
+        isConnected: true,
+      });
+
+      // Redirect back to dashboard
+      res.redirect('/dashboard?connected=' + platform);
+    } catch (error) {
+      console.error("Error handling OAuth callback:", error);
+      res.redirect('/dashboard?error=oauth_failed');
+    }
+  });
+
+  app.get("/api/social/mock-callback", isAuthenticated, async (req: any, res) => {
+    // This endpoint is used in mock mode to simulate OAuth callback
+    const { code, state } = req.query;
+    res.redirect(`/api/social/callback/twitter?code=${code}&state=${state}`);
+  });
+
+  app.delete("/api/connected-accounts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const accountId = req.params.id;
+      
+      // Verify ownership before deleting
+      const account = await storage.getConnectedAccountById(accountId);
+      if (!account || account.userId !== userId) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+      
+      await storage.deleteConnectedAccount(accountId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting connected account:", error);
+      res.status(500).json({ message: "Failed to delete account" });
     }
   });
 

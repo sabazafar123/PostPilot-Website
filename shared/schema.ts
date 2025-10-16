@@ -34,7 +34,11 @@ export const connectedAccounts = pgTable("connected_accounts", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   platform: text("platform").notNull(), // facebook, instagram, youtube, tiktok, linkedin, twitter
   accountName: text("account_name"),
-  isConnected: boolean("is_connected").notNull().default(false), // placeholder for future API integration
+  accountId: text("account_id"), // Platform-specific user/page ID
+  accessToken: text("access_token"), // OAuth access token (encrypted in production)
+  refreshToken: text("refresh_token"), // OAuth refresh token
+  tokenExpiresAt: timestamp("token_expires_at"), // When the access token expires
+  isConnected: boolean("is_connected").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

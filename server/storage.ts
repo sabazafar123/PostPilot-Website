@@ -20,7 +20,9 @@ export interface IStorage {
   
   // Connected accounts
   getConnectedAccountsByUser(userId: string): Promise<ConnectedAccount[]>;
+  getConnectedAccountById(id: string): Promise<ConnectedAccount | undefined>;
   createConnectedAccount(account: InsertConnectedAccount): Promise<ConnectedAccount>;
+  deleteConnectedAccount(id: string): Promise<void>;
   
   // Posts
   getPostsByUser(userId: string): Promise<Post[]>;
@@ -57,12 +59,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(connectedAccounts.userId, userId));
   }
 
+  async getConnectedAccountById(id: string): Promise<ConnectedAccount | undefined> {
+    const [account] = await db
+      .select()
+      .from(connectedAccounts)
+      .where(eq(connectedAccounts.id, id));
+    return account || undefined;
+  }
+
   async createConnectedAccount(account: InsertConnectedAccount): Promise<ConnectedAccount> {
     const [newAccount] = await db
       .insert(connectedAccounts)
       .values(account)
       .returning();
     return newAccount;
+  }
+
+  async deleteConnectedAccount(id: string): Promise<void> {
+    await db
+      .delete(connectedAccounts)
+      .where(eq(connectedAccounts.id, id));
   }
 
   // Posts
