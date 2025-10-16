@@ -1,0 +1,344 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { format } from "date-fns";
+import { Calendar, Facebook, Instagram, Youtube, Linkedin, Twitter as XIcon, Upload, Clock, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { SiTiktok } from "react-icons/si";
+import type { Post, ConnectedAccount } from "@shared/schema";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { UploadResult } from "@uppy/core";
+
+const PLATFORMS = [
+  { id: "facebook", name: "Facebook", icon: Facebook, color: "text-blue-600" },
+  { id: "instagram", name: "Instagram", icon: Instagram, color: "text-pink-600" },
+  { id: "youtube", name: "YouTube", icon: Youtube, color: "text-red-600" },
+  { id: "tiktok", name: "TikTok", icon: SiTiktok, color: "text-black dark:text-white" },
+  { id: "linkedin", name: "LinkedIn", icon: Linkedin, color: "text-blue-700" },
+  { id: "twitter", name: "X (Twitter)", icon: XIcon, color: "text-black dark:text-white" },
+];
+
+export default function Dashboard() {
+  const { toast } = useToast();
+  const [postContent, setPostContent] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+
+  const { data: connectedAccounts } = useQuery<ConnectedAccount[]>({
+    queryKey: ["/api/connected-accounts"],
+  });
+
+  const { data: posts, isLoading: postsLoading } = useQuery<Post[]>({
+    queryKey: ["/api/posts"],
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: (platform: string) =>
+      apiRequest("POST", "/api/connected-accounts", { platform }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connected-accounts"] });
+      toast({
+        title: "Account Connected",
+        description: "Platform connection placeholder saved (API integration pending)",
+      });
+    },
+  });
+
+  const createPostMutation = useMutation({
+    mutationFn: (data: { content: string; imageUrl?: string; platforms: string[]; scheduledFor: string }) =>
+      apiRequest("POST", "/api/posts", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      setPostContent("");
+      setImageUrl("");
+      setScheduledDate("");
+      setSelectedPlatforms([]);
+      toast({
+        title: "Post Scheduled!",
+        description: "Your post has been scheduled successfully.",
+      });
+    },
+  });
+
+  const handlePlatformToggle = (platformId: string) => {
+    setSelectedPlatforms((prev) =>
+      prev.includes(platformId)
+        ? prev.filter((p) => p !== platformId)
+        : [...prev, platformId]
+    );
+  };
+
+  const handleSchedulePost = () => {
+    if (!postContent || !scheduledDate || selectedPlatforms.length === 0) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createPostMutation.mutate({
+      content: postContent,
+      imageUrl: imageUrl || undefined,
+      platforms: selectedPlatforms,
+      scheduledFor: scheduledDate,
+    });
+  };
+
+  const getUploadParameters = async () => {
+    const response = await fetch("/api/objects/upload", {
+      method: "POST",
+      credentials: "include",
+    });
+    const data = await response.json();
+    return { method: "PUT" as const, url: data.uploadURL };
+  };
+
+  const handleUploadComplete = async (result: UploadResult) => {
+    if (result.successful[0]?.uploadURL) {
+      const uploadedUrl = result.successful[0].uploadURL.split("?")[0];
+      
+      const response = await fetch("/api/post-images", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ imageURL: uploadedUrl }),
+      });
+      
+      const data = await response.json();
+      setImageUrl(data.objectPath);
+      toast({
+        title: "Image Uploaded",
+        description: "Your image has been uploaded successfully",
+      });
+    }
+  };
+
+  const scheduledPosts = posts?.filter((p) => p.status === "scheduled") || [];
+  const pastPosts = posts?.filter((p) => p.status === "published") || [];
+
+  const isAccountConnected = (platformId: string) => {
+    return connectedAccounts?.some((acc) => acc.platform === platformId && acc.isConnected);
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto p-6 space-y-8">
+        {/* Connect Accounts Section */}
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle className="text-2xl" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              Connect Social Accounts
+            </CardTitle>
+            <CardDescription>Link your social media platforms (API integration pending)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {PLATFORMS.map((platform) => {
+                const Icon = platform.icon;
+                const connected = isAccountConnected(platform.id);
+                return (
+                  <Button
+                    key={platform.id}
+                    variant={connected ? "default" : "outline"}
+                    onClick={() => connectMutation.mutate(platform.id)}
+                    disabled={connectMutation.isPending}
+                    data-testid={`button-connect-${platform.id}`}
+                    className="h-24 flex-col gap-2 hover-elevate active-elevate-2"
+                  >
+                    <Icon className={`w-8 h-8 ${connected ? "text-white" : platform.color}`} />
+                    <span className="text-xs font-medium">{platform.name}</span>
+                    {connected && <Badge className="text-xs px-1 py-0">Connected</Badge>}
+                  </Button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Create Post Section */}
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle className="text-2xl" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              Create Post
+            </CardTitle>
+            <CardDescription>Schedule content across multiple platforms</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Post Content</label>
+              <Textarea
+                value={postContent}
+                onChange={(e) => setPostContent(e.target.value)}
+                placeholder="What's on your mind?"
+                className="min-h-32 resize-none"
+                data-testid="input-post-content"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Upload Image/Video</label>
+              <div className="flex gap-4 items-center">
+                <ObjectUploader
+                  onGetUploadParameters={getUploadParameters}
+                  onComplete={handleUploadComplete}
+                  maxFileSize={10485760}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Media
+                </ObjectUploader>
+                {imageUrl && (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <span className="text-sm text-muted-foreground">Image uploaded</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Schedule Date & Time</label>
+              <Input
+                type="datetime-local"
+                value={scheduledDate}
+                onChange={(e) => setScheduledDate(e.target.value)}
+                data-testid="input-schedule-date"
+                className="max-w-md"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Platforms</label>
+              <div className="flex flex-wrap gap-2">
+                {PLATFORMS.map((platform) => {
+                  const Icon = platform.icon;
+                  return (
+                    <Badge
+                      key={platform.id}
+                      variant={selectedPlatforms.includes(platform.id) ? "default" : "outline"}
+                      onClick={() => handlePlatformToggle(platform.id)}
+                      className="cursor-pointer px-3 py-2 hover-elevate active-elevate-2"
+                      data-testid={`badge-platform-${platform.id}`}
+                    >
+                      <Icon className="w-4 h-4 mr-1" />
+                      {platform.name}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Button
+              onClick={handleSchedulePost}
+              disabled={createPostMutation.isPending}
+              data-testid="button-schedule-post"
+              className="w-full md:w-auto bg-gradient-to-r from-purple-600 via-sky-600 to-pink-600 hover:from-purple-700 hover:via-sky-700 hover:to-pink-700 text-white"
+            >
+              {createPostMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Scheduling...
+                </>
+              ) : (
+                <>
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Schedule Post
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Posts Tables */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Scheduled Posts */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-sky-600" />
+                Scheduled Posts
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {postsLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading...</div>
+              ) : scheduledPosts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No scheduled posts</div>
+              ) : (
+                <div className="space-y-4">
+                  {scheduledPosts.map((post) => (
+                    <div
+                      key={post.id}
+                      className="p-4 border border-border rounded-lg space-y-2 hover-elevate"
+                      data-testid={`scheduled-post-${post.id}`}
+                    >
+                      <p className="text-sm font-medium line-clamp-2">{post.content}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="w-3 h-3" />
+                        {format(new Date(post.scheduledFor), "PPp")}
+                      </div>
+                      <div className="flex gap-1 flex-wrap">
+                        {post.platforms?.map((p) => (
+                          <Badge key={p} variant="secondary" className="text-xs">
+                            {p}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Past Posts */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                Past Posts
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {postsLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading...</div>
+              ) : pastPosts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No published posts yet</div>
+              ) : (
+                <div className="space-y-4">
+                  {pastPosts.map((post) => (
+                    <div
+                      key={post.id}
+                      className="p-4 border border-border rounded-lg space-y-2 hover-elevate"
+                      data-testid={`past-post-${post.id}`}
+                    >
+                      <p className="text-sm font-medium line-clamp-2">{post.content}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <CheckCircle2 className="w-3 h-3 text-green-600" />
+                        {post.publishedAt ? format(new Date(post.publishedAt), "PPp") : "Published"}
+                      </div>
+                      <div className="flex gap-1 flex-wrap">
+                        {post.platforms?.map((p) => (
+                          <Badge key={p} variant="secondary" className="text-xs">
+                            {p}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
