@@ -191,6 +191,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/posts/:id/publish", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const postId = req.params.id;
+      
+      // Get the post and verify ownership
+      const post = await storage.getPostById(postId);
+      if (!post || post.userId !== userId) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      // Get connected accounts for the platforms
+      const connectedAccounts = await storage.getConnectedAccountsByPlatforms(userId, post.platforms);
+      
+      // Check if we have accounts for all requested platforms
+      const connectedPlatforms = new Set(connectedAccounts.map(acc => acc.platform));
+      const missingPlatforms = post.platforms.filter(p => !connectedPlatforms.has(p));
+      
+      if (missingPlatforms.length > 0) {
+        return res.status(400).json({ 
+          message: "Missing connected accounts",
+          missingPlatforms 
+        });
+      }
+
+      // Publish to each platform (already filtered by getConnectedAccountsByPlatforms)
+      // Wrap each publish in a try/catch to ensure all promises fulfill (never reject)
+      const publishPromises = connectedAccounts.map(async (account) => {
+        try {
+          const provider = platformManager.getProvider(account.platform as PlatformName);
+          const result = await provider.publishPost(account.accessToken!, {
+            text: post.content,
+            imageUrl: post.imageUrl || undefined,
+          });
+
+          // Ensure success property is explicitly set
+          return {
+            platform: account.platform,
+            success: result.success ?? false,
+            postId: result.postId,
+            platformUrl: result.platformUrl,
+            error: result.error,
+          };
+        } catch (error) {
+          // Catch and convert to fulfilled promise with error info
+          return {
+            platform: account.platform,
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to publish',
+          };
+        }
+      });
+
+      // All promises will fulfill (due to try/catch), so we use Promise.all
+      const results = await Promise.all(publishPromises);
+
+      // Check if any succeeded
+      const successes = results.filter(r => r.success);
+      const failures = results.filter(r => !r.success);
+
+      // Update post status based on results
+      const newStatus = successes.length > 0 ? 'published' : 'failed';
+      const updatedPost = await storage.updatePostStatus(postId, newStatus);
+
+      res.json({
+        post: updatedPost,
+        results,
+        summary: {
+          total: results.length,
+          successful: successes.length,
+          failed: failures.length,
+        },
+      });
+    } catch (error) {
+      console.error("Error publishing post:", error);
+      res.status(500).json({ message: "Failed to publish post" });
+    }
+  });
+
   // SEO Generation with OpenAI
   app.post("/api/seo-generate", isAuthenticated, async (req, res) => {
     try {

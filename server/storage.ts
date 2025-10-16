@@ -11,7 +11,7 @@ import {
   type InsertPost,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -26,7 +26,12 @@ export interface IStorage {
   
   // Posts
   getPostsByUser(userId: string): Promise<Post[]>;
+  getPostById(id: string): Promise<Post | undefined>;
   createPost(post: InsertPost): Promise<Post>;
+  updatePostStatus(id: string, status: string, publishedAt?: Date): Promise<Post>;
+  
+  // Get connected accounts by platforms
+  getConnectedAccountsByPlatforms(userId: string, platforms: string[]): Promise<ConnectedAccount[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -90,12 +95,45 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(posts.scheduledFor));
   }
 
+  async getPostById(id: string): Promise<Post | undefined> {
+    const [post] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, id));
+    return post || undefined;
+  }
+
   async createPost(postData: InsertPost): Promise<Post> {
     const [post] = await db
       .insert(posts)
-      .values(postData)
+      .values(postData as any)
       .returning();
     return post;
+  }
+
+  async updatePostStatus(id: string, status: string, publishedAt?: Date): Promise<Post> {
+    const [post] = await db
+      .update(posts)
+      .set({ 
+        status,
+        publishedAt: publishedAt || (status === 'published' ? new Date() : undefined)
+      })
+      .where(eq(posts.id, id))
+      .returning();
+    return post;
+  }
+
+  async getConnectedAccountsByPlatforms(userId: string, platforms: string[]): Promise<ConnectedAccount[]> {
+    return await db
+      .select()
+      .from(connectedAccounts)
+      .where(
+        and(
+          eq(connectedAccounts.userId, userId),
+          eq(connectedAccounts.isConnected, true),
+          inArray(connectedAccounts.platform, platforms)
+        )
+      );
   }
 }
 

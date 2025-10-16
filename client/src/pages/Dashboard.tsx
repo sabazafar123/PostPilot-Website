@@ -116,6 +116,26 @@ export default function Dashboard() {
     },
   });
 
+  const publishPostMutation = useMutation({
+    mutationFn: (postId: string) =>
+      apiRequest("POST", `/api/posts/${postId}/publish`, {}),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      const { summary } = data;
+      toast({
+        title: "Post Published!",
+        description: `Successfully published to ${summary.successful}/${summary.total} platforms`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Publication Failed",
+        description: error.message || "Failed to publish post",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handlePlatformToggle = (platformId: string) => {
     setSelectedPlatforms((prev) =>
       prev.includes(platformId)
@@ -339,7 +359,7 @@ export default function Dashboard() {
                   {scheduledPosts.map((post) => (
                     <div
                       key={post.id}
-                      className="p-4 border border-border rounded-lg space-y-2 hover-elevate"
+                      className="p-4 border border-border rounded-lg space-y-3 hover-elevate"
                       data-testid={`scheduled-post-${post.id}`}
                     >
                       <p className="text-sm font-medium line-clamp-2">{post.content}</p>
@@ -354,6 +374,25 @@ export default function Dashboard() {
                           </Badge>
                         ))}
                       </div>
+                      <Button
+                        size="sm"
+                        onClick={() => publishPostMutation.mutate(post.id)}
+                        disabled={publishPostMutation.isPending}
+                        data-testid={`button-publish-${post.id}`}
+                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                      >
+                        {publishPostMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                            Publishing...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3 h-3 mr-2" />
+                            Publish Now
+                          </>
+                        )}
+                      </Button>
                     </div>
                   ))}
                 </div>
