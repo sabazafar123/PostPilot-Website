@@ -272,7 +272,7 @@ export default function Dashboard() {
                 <ObjectUploader
                   onGetUploadParameters={getUploadParameters}
                   onComplete={handleUploadComplete}
-                  maxFileSize={10485760}
+                  maxFileSize={524288000}
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Upload Media
@@ -280,7 +280,7 @@ export default function Dashboard() {
                 {imageUrl && (
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-muted-foreground">Image uploaded</span>
+                    <span className="text-sm text-muted-foreground">Media uploaded</span>
                   </div>
                 )}
               </div>
