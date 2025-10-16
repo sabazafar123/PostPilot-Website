@@ -1,0 +1,145 @@
+You are an expert SaaS full-stack developer.  
+Create a complete, professional SaaS web app called *PostPilot* that helps users manage and schedule their social media content from one place.
+
+💻 MAIN OBJECTIVE:
+PostPilot allows users to link multiple social media accounts, schedule posts, view past uploads, and generate SEO content using AI.  
+It should look and feel like a real paid SaaS platform.
+
+---
+
+### 🔐 1. USER AUTHENTICATION
+- Allow users to Sign Up and Log In (email/password + Google sign-in).
+- Each user has their own dashboard and stored data (Firebase or MongoDB).
+- Include Logout button and authentication protection for private pages.
+
+---
+
+### 🏠 2. DASHBOARD (Main Page)
+This is the home page after login.
+
+Include:
+- “Connect Accounts” section → Buttons for Facebook, Instagram, YouTube, TikTok, LinkedIn, and X (Twitter).  
+  (For now, just use placeholder buttons with icons — APIs can be connected later.)
+- “Create Post” section:
+  - Text box for caption/content
+  - Option to upload image/video
+  - Date and time picker to schedule
+  - “Schedule Post” button
+- Below that, show:
+  - *Scheduled Posts* table (post text, date, platforms, status)
+  - *Past Posts* table (post, date, platform, result)
+- When a post is scheduled, show success toast notification.
+- Store and display all data by user.
+
+---
+
+### 🤖 3. SEO ASSISTANT PAGE (Second Page)
+Separate page named /seo.
+
+Include:
+- Input box: “Enter your post topic or title”
+- Button: “Generate SEO Content”
+- Use *OpenAI API* (or mock for demo) to generate:
+  - SEO-optimized Title
+  - Description
+  - 10+ relevant Hashtags
+  - Suggested posting time
+- Show results below in a stylish card with a *“Copy All”* button.
+- Add “Back to Dashboard” link at top.
+
+---
+
+### 💳 4. PRICING & PAYMENTS PAGE
+Route: /pricing
+
+Create 3 subscription plans with a modern pricing table + Stripe (test mode) integration.
+
+#### 🆓 Free Plan – “Takeoff”
+- Schedule up to 5 posts/month
+- Manage 1 social account
+- Access to basic dashboard
+- Limited AI SEO tools
+- View past posts
+
+💬 Tagline: Perfect for beginners testing their wings.
+
+Button: Start Free
+
+---
+
+#### 💼 Pro Plan – “Cruise Mode” ($9.99/month or $99/year)
+- Unlimited scheduling
+- Up to 5 social accounts
+- Full AI SEO tools (titles, hashtags, descriptions)
+- Smart posting time suggestions
+- Basic analytics dashboard
+- Priority support
+
+💬 Tagline: Everything you need to grow faster and smarter.
+
+Button: Upgrade to Pro
+
+---
+
+#### 🏢 Agency Plan – “Full Control” ($24.99/month or $249/year)
+- Unlimited posts & uploads
+- Manage up to 20 accounts
+- Team collaboration (multi-user access)
+- Advanced analytics + performance reports
+- Custom branding & white-label option
+- Dedicated support + onboarding help
+
+💬 Tagline: Built for agencies, power users & professionals.
+
+Button: Go Agency 🚀
+
+---
+
+### 🧠 5. EXTRA FEATURES
+- Toast notifications (success/error)
+- Dark/light mode toggle
+- Modern UI with *Tailwind CSS*
+- Responsive layout (mobile/tablet)
+- Placeholder functions for social media API posting
+- All data should be stored per user
+
+---
+
+### 🎨 6. UI DESIGN
+- Brand name: *🚀 PostPilot – Simplify Your Socials*
+- Navigation Bar:
+  - Dashboard | SEO Tools | Pricing | Logout
+- Hero banner (on login page) with tagline:
+  > “Plan Once. Post Everywhere.”
+- Gradient color scheme: purple → sky blue → pink
+- Rounded cards, smooth hover animations, soft shadows
+- Toastify or similar library for alerts
+
+---
+
+### ⚙️ 7. TECH STACK
+- *Frontend:* React or Next.js (your choice)
+- *Backend:* Node.js + Express
+- *Database:* Firebase or MongoDB
+- *Styling:* Tailwind CSS
+- *Payments:* Stripe (test mode)
+- *AI:* OpenAI API (mocked for now)
+
+---
+
+### 🎯 8. GOAL
+Create a beautiful, fully functional SaaS prototype called *PostPilot* with:
+✅ Authentication  
+✅ Dashboard for scheduling  
+✅ SEO AI Assistant page  
+✅ Payment system with plans  
+✅ Modern UI + responsive design  
+✅ Placeholder API logic (for later expansion)  
+
+---
+
+### 🪄 Final Notes:
+Make sure the app runs properly with “npm run dev” or “npm start”.  
+Add comments in code where API connections and Stripe keys should go later.
+
+This should look like a ready-to-launch SaaS startup product.
