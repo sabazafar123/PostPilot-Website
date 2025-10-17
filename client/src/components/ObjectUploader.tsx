@@ -44,33 +44,40 @@ export function ObjectUploader({
       })
       .on("complete", (result) => {
         onComplete?.(result);
+        // Reset Uppy after upload to allow multiple uploads
+        uppy.cancelAll();
+        // Close modal after successful upload
+        setShowModal(false);
       })
   );
 
   return (
     <div>
-      <button 
+      <span 
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           setShowModal(true);
         }} 
-        className={buttonClassName}
-        type="button"
-        tabIndex={-1}
-        onKeyDown={(e) => e.preventDefault()}
-        onKeyPress={(e) => e.preventDefault()}
-        onKeyUp={(e) => e.preventDefault()}
+        className={`${buttonClassName} cursor-pointer`}
+        role="button"
+        aria-label="Browse files to upload"
+        data-testid="link-browse-files"
       >
         {children}
-      </button>
+      </span>
 
-      <DashboardModal
-        uppy={uppy}
-        open={showModal}
-        onRequestClose={() => setShowModal(false)}
-        proudlyDisplayPoweredByUppy={false}
-      />
+      {showModal && (
+        <DashboardModal
+          uppy={uppy}
+          open={showModal}
+          onRequestClose={() => {
+            setShowModal(false);
+            uppy.cancelAll();
+          }}
+          proudlyDisplayPoweredByUppy={false}
+        />
+      )}
     </div>
   );
 }

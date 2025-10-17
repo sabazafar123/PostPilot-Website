@@ -1,0 +1,34 @@
+You are a professional frontend developer debugging a React (or plain JS) web app built and hosted on Replit.  
+The app is named "PostPilot" — it includes a “Post Content” text box and a “Browse File” upload button.  
+
+I am facing the following issues in my current code:
+
+1️⃣ The “Post Content” text box becomes inactive or loses focus after typing just one word.  
+   ✅ FIX: The input/textarea should stay active and allow continuous typing.  
+   ➜ Probably caused by unnecessary re-render or form reset. Make sure the onChange handler updates state without causing re-mount, and avoid calling preventDefault() or resetting the form on keypress.
+
+2️⃣ When I press the spacebar inside the “Post Content” box, the “Browse File” button below gets focused or triggered.  
+   ✅ FIX: Disable any global key event that captures space or Enter for buttons.  
+   ➜ Only allow key events inside the text area to affect the text, not any other button.
+
+3️⃣ The “Browse File” button successfully uploads *images, but **videos do not upload*.  
+   ✅ FIX: Update file input accept attribute and upload logic.  
+   ➜ Example: accept="image/*,video/*"  
+   ➜ Also handle file type checking (e.g., using file.type.startsWith('video/')) and use the same upload handler for both.
+
+4️⃣ After uploading one media file (image or video), I cannot upload a second file.  
+   ✅ FIX: Allow multiple uploads or reset the input value after each upload.  
+   ➜ For single uploads: set e.target.value = "" after upload.  
+   ➜ For multiple uploads: use multiple attribute and update the media preview array in state.
+
+Please write a corrected version of this React component that handles all the above fixes.  
+Include:
+- Controlled textarea for post content (with continuous typing)
+- “Browse File” button that supports both image and video
+- Preview for uploaded media (optional)
+- Ability to upload again after the first upload (either replacing or adding)
+- Clean, minimal Tailwind styling (responsive and simple)
+- Use React functional components with useState hooks
+- Comments explaining important fixes
+
+Output only the final corrected code (React JSX file).
