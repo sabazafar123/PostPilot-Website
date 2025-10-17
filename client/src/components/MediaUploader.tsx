@@ -37,6 +37,9 @@ export function MediaUploader({
       });
       
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Please log in to upload media");
+        }
         throw new Error(`Failed to get upload URL: ${response.status}`);
       }
       
