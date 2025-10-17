@@ -23,7 +23,10 @@ export default function SEO() {
   const [copied, setCopied] = useState(false);
 
   const generateMutation = useMutation({
-    mutationFn: (topic: string) => apiRequest("POST", "/api/seo-generate", { topic }),
+    mutationFn: async (topic: string) => {
+      const response = await apiRequest("POST", "/api/seo-generate", { topic });
+      return await response.json() as SEOResult;
+    },
     onSuccess: (data: SEOResult) => {
       setResult(data);
       toast({
@@ -59,7 +62,7 @@ export default function SEO() {
 
 Description: ${result.description}
 
-Hashtags: ${result.hashtags.join(" ")}
+Hashtags: ${result.hashtags?.join(" ") || "N/A"}
 
 Best Time to Post: ${result.suggestedTime}`;
 
@@ -202,7 +205,7 @@ Best Time to Post: ${result.suggestedTime}`;
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-wrap gap-2" data-testid="container-hashtags">
-                        {result.hashtags.map((tag, index) => (
+                        {result.hashtags?.map((tag, index) => (
                           <Badge
                             key={index}
                             variant="secondary"
@@ -210,7 +213,7 @@ Best Time to Post: ${result.suggestedTime}`;
                           >
                             {tag}
                           </Badge>
-                        ))}
+                        )) || <p className="text-muted-foreground">No hashtags generated</p>}
                       </div>
                     </CardContent>
                   </Card>

@@ -183,7 +183,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
         status: "scheduled",
       });
-      const post = await storage.createPost(data);
+      
+      // Convert scheduledFor to Date if it's a string
+      const postData = {
+        ...data,
+        scheduledFor: typeof data.scheduledFor === 'string' 
+          ? new Date(data.scheduledFor) 
+          : data.scheduledFor,
+      };
+      
+      const post = await storage.createPost(postData);
       res.json(post);
     } catch (error) {
       console.error("Error creating post:", error);
