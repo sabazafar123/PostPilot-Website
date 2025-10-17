@@ -228,6 +228,16 @@ npm start
 - Mobile-responsive with consistent spacing and typography
 
 ## Recent Changes
+- **Oct 17, 2025**: Media Upload System Redesign & Critical Bug Fixes
+  - **NEW**: Custom MediaUploader component (single button, direct file picker)
+  - **NEW**: Professional MediaGallery with fade-in animations and responsive grid
+  - **FIXED**: Object storage authentication (now uses Replit sidecar endpoint)
+  - **FIXED**: 403 Forbidden errors on media uploads
+  - **FIXED**: Comprehensive error handling with try-catch-finally blocks
+  - **FIXED**: Button stuck states with proper state cleanup
+  - Removed Uppy modal for cleaner UX
+  - Added user-friendly error messages for auth failures
+
 - **Oct 16, 2024**: Initial MVP implementation
   - Complete authentication with Replit Auth + Google sign-in
   - Dashboard with post creation and management
