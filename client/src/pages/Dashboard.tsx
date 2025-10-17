@@ -166,10 +166,17 @@ export default function Dashboard() {
 
   const handleUploadComplete = (url: string) => {
     setMediaUrls(prev => [...prev, url]);
-    setIsUploading(false);
     toast({
       title: "Media Uploaded",
       description: "Your media has been uploaded successfully",
+    });
+  };
+
+  const handleUploadError = (error: string) => {
+    toast({
+      title: "Upload Failed",
+      description: error,
+      variant: "destructive",
     });
   };
 
@@ -257,8 +264,10 @@ export default function Dashboard() {
                 <label className="text-sm font-medium">Media Gallery</label>
                 <MediaUploader
                   onUploadComplete={handleUploadComplete}
+                  onUploadError={handleUploadError}
                   isUploading={isUploading}
                   onUploadStart={() => setIsUploading(true)}
+                  onUploadEnd={() => setIsUploading(false)}
                 />
               </div>
               

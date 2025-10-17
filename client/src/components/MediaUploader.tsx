@@ -4,11 +4,19 @@ import { Upload, Loader2 } from "lucide-react";
 
 interface MediaUploaderProps {
   onUploadComplete: (url: string) => void;
+  onUploadError: (error: string) => void;
   isUploading: boolean;
   onUploadStart: () => void;
+  onUploadEnd: () => void;
 }
 
-export function MediaUploader({ onUploadComplete, isUploading, onUploadStart }: MediaUploaderProps) {
+export function MediaUploader({ 
+  onUploadComplete, 
+  onUploadError,
+  isUploading, 
+  onUploadStart,
+  onUploadEnd 
+}: MediaUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleButtonClick = () => {
@@ -27,16 +35,25 @@ export function MediaUploader({ onUploadComplete, isUploading, onUploadStart }: 
         method: "POST",
         credentials: "include",
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to get upload URL: ${response.status}`);
+      }
+      
       const data = await response.json();
 
       // Upload file to storage
-      await fetch(data.uploadURL, {
+      const uploadResponse = await fetch(data.uploadURL, {
         method: "PUT",
         body: file,
         headers: {
           "Content-Type": file.type,
         },
       });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.status}`);
+      }
 
       // Set ACL to public
       const uploadedUrl = data.uploadURL.split("?")[0];
@@ -46,6 +63,10 @@ export function MediaUploader({ onUploadComplete, isUploading, onUploadStart }: 
         credentials: "include",
         body: JSON.stringify({ imageURL: uploadedUrl }),
       });
+
+      if (!aclResponse.ok) {
+        throw new Error(`Failed to set permissions: ${aclResponse.status}`);
+      }
 
       const aclData = await aclResponse.json();
       
@@ -58,6 +79,16 @@ export function MediaUploader({ onUploadComplete, isUploading, onUploadStart }: 
       }
     } catch (error) {
       console.error("Upload failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Upload failed. Please try again.";
+      onUploadError(errorMessage);
+      
+      // Reset input for retry
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } finally {
+      // Always reset uploading state
+      onUploadEnd();
     }
   };
 
