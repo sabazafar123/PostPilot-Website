@@ -12,7 +12,8 @@ import { format } from "date-fns";
 import { Calendar, Facebook, Instagram, Youtube, Linkedin, Twitter as XIcon, Upload, Clock, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { SiTiktok } from "react-icons/si";
 import type { Post, ConnectedAccount } from "@shared/schema";
-import { ObjectUploader } from "@/components/ObjectUploader";
+import { MediaUploader } from "@/components/MediaUploader";
+import { MediaGallery } from "@/components/MediaGallery";
 
 const PLATFORMS = [
   { id: "facebook", name: "Facebook", icon: Facebook, color: "text-blue-600" },
@@ -27,7 +28,8 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [location] = useLocation();
   const [postContent, setPostContent] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [scheduledDate, setScheduledDate] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
 
@@ -106,7 +108,7 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       setPostContent("");
-      setImageUrl("");
+      setMediaUrls([]);
       setScheduledDate("");
       setSelectedPlatforms([]);
       toast({
@@ -156,39 +158,23 @@ export default function Dashboard() {
 
     createPostMutation.mutate({
       content: postContent,
-      imageUrl: imageUrl || undefined,
+      imageUrl: mediaUrls[0] || undefined, // Use first media URL for now
       platforms: selectedPlatforms,
       scheduledFor: scheduledDate,
     });
   };
 
-  const getUploadParameters = async () => {
-    const response = await fetch("/api/objects/upload", {
-      method: "POST",
-      credentials: "include",
+  const handleUploadComplete = (url: string) => {
+    setMediaUrls(prev => [...prev, url]);
+    setIsUploading(false);
+    toast({
+      title: "Media Uploaded",
+      description: "Your media has been uploaded successfully",
     });
-    const data = await response.json();
-    return { method: "PUT" as const, url: data.uploadURL };
   };
 
-  const handleUploadComplete = async (result: any) => {
-    if (result.successful[0]?.uploadURL) {
-      const uploadedUrl = result.successful[0].uploadURL.split("?")[0];
-      
-      const response = await fetch("/api/post-images", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ imageURL: uploadedUrl }),
-      });
-      
-      const data = await response.json();
-      setImageUrl(data.objectPath);
-      toast({
-        title: "Image Uploaded",
-        description: "Your image has been uploaded successfully",
-      });
-    }
+  const handleRemoveMedia = (url: string) => {
+    setMediaUrls(prev => prev.filter(u => u !== url));
   };
 
   const scheduledPosts = posts?.filter((p) => p.status === "scheduled") || [];
@@ -266,24 +252,20 @@ export default function Dashboard() {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Upload Image/Video</label>
-              <div className="flex gap-4 items-center">
-                <ObjectUploader
-                  onGetUploadParameters={getUploadParameters}
-                  onComplete={handleUploadComplete}
-                  maxFileSize={524288000}
-                  buttonClassName="p-0 h-auto bg-transparent hover:bg-transparent text-primary underline-offset-4 hover:underline font-normal"
-                >
-                  browse files
-                </ObjectUploader>
-                {imageUrl && (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-muted-foreground">Media uploaded</span>
-                  </div>
-                )}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Media Gallery</label>
+                <MediaUploader
+                  onUploadComplete={handleUploadComplete}
+                  isUploading={isUploading}
+                  onUploadStart={() => setIsUploading(true)}
+                />
               </div>
+              
+              <MediaGallery 
+                mediaUrls={mediaUrls} 
+                onRemove={handleRemoveMedia}
+              />
             </div>
 
             <div className="space-y-2">
