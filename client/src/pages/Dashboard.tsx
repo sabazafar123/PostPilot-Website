@@ -273,9 +273,9 @@ export default function Dashboard() {
                   onGetUploadParameters={getUploadParameters}
                   onComplete={handleUploadComplete}
                   maxFileSize={524288000}
+                  buttonClassName="p-0 h-auto bg-transparent hover:bg-transparent text-primary underline-offset-4 hover:underline font-normal"
                 >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Media
+                  browse files
                 </ObjectUploader>
                 {imageUrl && (
                   <div className="flex items-center gap-2">

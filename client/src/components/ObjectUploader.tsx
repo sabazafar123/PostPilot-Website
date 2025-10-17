@@ -34,6 +34,7 @@ export function ObjectUploader({
       restrictions: {
         maxNumberOfFiles,
         maxFileSize,
+        // No file type restriction - allow all images and videos
       },
       autoProceed: false,
     })
@@ -48,9 +49,21 @@ export function ObjectUploader({
 
   return (
     <div>
-      <Button onClick={() => setShowModal(true)} className={buttonClassName} type="button">
+      <button 
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowModal(true);
+        }} 
+        className={buttonClassName}
+        type="button"
+        tabIndex={-1}
+        onKeyDown={(e) => e.preventDefault()}
+        onKeyPress={(e) => e.preventDefault()}
+        onKeyUp={(e) => e.preventDefault()}
+      >
         {children}
-      </Button>
+      </button>
 
       <DashboardModal
         uppy={uppy}
